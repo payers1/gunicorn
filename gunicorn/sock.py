@@ -14,7 +14,6 @@ from gunicorn import util
 
 
 class BaseSocket(object):
-
     def __init__(self, address, conf, log, fd=None):
         self.log = log
         self.conf = conf
@@ -38,8 +37,7 @@ class BaseSocket(object):
 
     def set_options(self, sock, bound=False):
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        if (self.conf.reuse_port
-            and hasattr(socket, 'SO_REUSEPORT')):  # pragma: no cover
+        if self.conf.reuse_port and hasattr(socket, "SO_REUSEPORT"):  # pragma: no cover
             try:
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
             except socket.error as err:
@@ -189,7 +187,7 @@ def create_sockets(conf, log, fds=None):
                     log.error("Invalid address: %s", str(addr))
                 if i < 5:
                     msg = "connection to {addr} failed: {error}"
-                    log.debug(msg.format(addr=str(addr), error=str(e)))
+                    log.info(msg.format(addr=str(addr), error=str(e)))
                     log.error("Retrying in 1 second.")
                     time.sleep(1)
             else:

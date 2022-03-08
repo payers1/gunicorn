@@ -31,7 +31,6 @@ from ..http import wsgi
 
 
 class TConn(object):
-
     def __init__(self, cfg, sock, client, server):
         self.cfg = cfg
         self.sock = sock
@@ -49,8 +48,9 @@ class TConn(object):
         if self.parser is None:
             # wrap the socket if needed
             if self.cfg.is_ssl:
-                self.sock = ssl.wrap_socket(self.sock, server_side=True,
-                                            **self.cfg.ssl_options)
+                self.sock = ssl.wrap_socket(
+                    self.sock, server_side=True, **self.cfg.ssl_options
+                )
 
             # initialize the parser
             self.parser = http.RequestParser(self.cfg, self.sock, self.client)
@@ -64,7 +64,6 @@ class TConn(object):
 
 
 class ThreadWorker(base.Worker):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.worker_connections = self.cfg.worker_connections
@@ -82,8 +81,10 @@ class ThreadWorker(base.Worker):
         max_keepalived = cfg.worker_connections - cfg.threads
 
         if max_keepalived <= 0 and cfg.keepalive:
-            log.warning("No keepalived connections can be handled. " +
-                        "Check the number of worker connections and threads.")
+            log.warning(
+                "No keepalived connections can be handled. "
+                + "Check the number of worker connections and threads."
+            )
 
     def init_process(self):
         self.tpool = self.get_thread_pool()
@@ -123,8 +124,7 @@ class ThreadWorker(base.Worker):
             # enqueue the job
             self.enqueue_req(conn)
         except EnvironmentError as e:
-            if e.errno not in (errno.EAGAIN, errno.ECONNABORTED,
-                               errno.EWOULDBLOCK):
+            if e.errno not in (errno.EAGAIN, errno.ECONNABORTED, errno.EWOULDBLOCK):
                 raise
 
     def reuse_connection(self, conn, client):
@@ -203,12 +203,14 @@ class ThreadWorker(base.Worker):
                     callback(key.fileobj)
 
                 # check (but do not wait) for finished requests
-                result = futures.wait(self.futures, timeout=0,
-                                      return_when=futures.FIRST_COMPLETED)
+                result = futures.wait(
+                    self.futures, timeout=0, return_when=futures.FIRST_COMPLETED
+                )
             else:
                 # wait for a request to finish
-                result = futures.wait(self.futures, timeout=1.0,
-                                      return_when=futures.FIRST_COMPLETED)
+                result = futures.wait(
+                    self.futures, timeout=1.0, return_when=futures.FIRST_COMPLETED
+                )
 
             # clean up finished requests
             for fut in result.done:
@@ -248,8 +250,11 @@ class ThreadWorker(base.Worker):
                     self._keep.append(conn)
 
                     # add the socket to the event loop
-                    self.poller.register(conn.sock, selectors.EVENT_READ,
-                                         partial(self.reuse_connection, conn))
+                    self.poller.register(
+                        conn.sock,
+                        selectors.EVENT_READ,
+                        partial(self.reuse_connection, conn),
+                    )
             else:
                 self.nr_conns -= 1
                 conn.close()
@@ -272,16 +277,16 @@ class ThreadWorker(base.Worker):
             if keepalive:
                 return (keepalive, conn)
         except http.errors.NoMoreData as e:
-            self.log.debug("Ignored premature client disconnection. %s", e)
+            self.log.info("Ignored premature client disconnection. %s", e)
 
         except StopIteration as e:
-            self.log.debug("Closing connection. %s", e)
+            self.log.info("Closing connection. %s", e)
         except ssl.SSLError as e:
             if e.args[0] == ssl.SSL_ERROR_EOF:
-                self.log.debug("ssl connection closed")
+                self.log.info("ssl connection closed")
                 conn.sock.close()
             else:
-                self.log.debug("Error processing SSL request.")
+                self.log.info("Error processing SSL request.")
                 self.handle_error(req, conn.sock, conn.client, e)
 
         except EnvironmentError as e:
@@ -289,11 +294,11 @@ class ThreadWorker(base.Worker):
                 self.log.exception("Socket error processing request.")
             else:
                 if e.errno == errno.ECONNRESET:
-                    self.log.debug("Ignoring connection reset")
+                    self.log.info("Ignoring connection reset")
                 elif e.errno == errno.ENOTCONN:
-                    self.log.debug("Ignoring socket not connected")
+                    self.log.info("Ignoring socket not connected")
                 else:
-                    self.log.debug("Ignoring connection epipe")
+                    self.log.info("Ignoring connection epipe")
         except Exception as e:
             self.handle_error(req, conn.sock, conn.client, e)
 
@@ -305,8 +310,9 @@ class ThreadWorker(base.Worker):
         try:
             self.cfg.pre_request(self, req)
             request_start = datetime.now()
-            resp, environ = wsgi.create(req, conn.sock, conn.client,
-                                        conn.server, self.cfg)
+            resp, environ = wsgi.create(
+                req, conn.sock, conn.client, conn.server, self.cfg
+            )
             environ["wsgi.multithread"] = True
             self.nr += 1
             if self.nr >= self.max_requests:
@@ -322,7 +328,7 @@ class ThreadWorker(base.Worker):
 
             respiter = self.wsgi(environ, resp.start_response)
             try:
-                if isinstance(respiter, environ['wsgi.file_wrapper']):
+                if isinstance(respiter, environ["wsgi.file_wrapper"]):
                     resp.write_file(respiter)
                 else:
                     for item in respiter:
@@ -336,7 +342,7 @@ class ThreadWorker(base.Worker):
                     respiter.close()
 
             if resp.should_close():
-                self.log.debug("Closing connection.")
+                self.log.info("Closing connection.")
                 return False
         except EnvironmentError:
             # pass to next try-except level

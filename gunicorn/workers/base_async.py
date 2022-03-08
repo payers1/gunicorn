@@ -18,7 +18,6 @@ ALREADY_HANDLED = object()
 
 
 class AsyncWorker(base.Worker):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.worker_connections = self.cfg.worker_connections
@@ -54,9 +53,9 @@ class AsyncWorker(base.Worker):
                             req.proxy_protocol_info = proxy_protocol_info
                         self.handle_request(listener_name, req, client, addr)
             except http.errors.NoMoreData as e:
-                self.log.debug("Ignored premature client disconnection. %s", e)
+                self.log.info("Ignored premature client disconnection. %s", e)
             except StopIteration as e:
-                self.log.debug("Closing connection. %s", e)
+                self.log.info("Closing connection. %s", e)
             except ssl.SSLError:
                 # pass to next try-except level
                 util.reraise(*sys.exc_info())
@@ -67,21 +66,21 @@ class AsyncWorker(base.Worker):
                 self.handle_error(req, client, addr, e)
         except ssl.SSLError as e:
             if e.args[0] == ssl.SSL_ERROR_EOF:
-                self.log.debug("ssl connection closed")
+                self.log.info("ssl connection closed")
                 client.close()
             else:
-                self.log.debug("Error processing SSL request.")
+                self.log.info("Error processing SSL request.")
                 self.handle_error(req, client, addr, e)
         except EnvironmentError as e:
             if e.errno not in (errno.EPIPE, errno.ECONNRESET, errno.ENOTCONN):
                 self.log.exception("Socket error processing request.")
             else:
                 if e.errno == errno.ECONNRESET:
-                    self.log.debug("Ignoring connection reset")
+                    self.log.info("Ignoring connection reset")
                 elif e.errno == errno.ENOTCONN:
-                    self.log.debug("Ignoring socket not connected")
+                    self.log.info("Ignoring socket not connected")
                 else:
-                    self.log.debug("Ignoring EPIPE")
+                    self.log.info("Ignoring EPIPE")
         except Exception as e:
             self.handle_error(req, client, addr, e)
         finally:
@@ -93,8 +92,7 @@ class AsyncWorker(base.Worker):
         resp = None
         try:
             self.cfg.pre_request(self, req)
-            resp, environ = wsgi.create(req, sock, addr,
-                                        listener_name, self.cfg)
+            resp, environ = wsgi.create(req, sock, addr, listener_name, self.cfg)
             environ["wsgi.multithread"] = True
             self.nr += 1
             if self.nr >= self.max_requests:
@@ -109,7 +107,7 @@ class AsyncWorker(base.Worker):
             if self.is_already_handled(respiter):
                 return False
             try:
-                if isinstance(respiter, environ['wsgi.file_wrapper']):
+                if isinstance(respiter, environ["wsgi.file_wrapper"]):
                     resp.write_file(respiter)
                 else:
                     for item in respiter:
